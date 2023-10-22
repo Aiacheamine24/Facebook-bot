@@ -1,62 +1,114 @@
 // Externals Imports
 const puppeteer = require('puppeteer');
-const fs = require('fs');
 const dotenv = require('dotenv');
+const fs = require('fs');
 
-// Internal Imports
+// Internals Imports
 const {
   openBrowser,
-  goToPageFirst,
-  goToPage,
-  write,
-  press,
+  closeBrowser,
+  openNewPage,
+  closePage,
+  goToUrl,
+  select,
+  pressKeyboardKey,
+  type,
   pressButton,
-} = require('./controllers/openBrowser');
-const { waiting } = require('./utils/waiting');
-const { getAllCarsData } = require('./controllers/getAllData');
+  scroll,
+} = require('./utils/puppeteerFunctions');
+const {
+  shortWaiting,
+  longWaiting,
+  customizedWaiting,
+} = require('./utils/waiting');
+const { getAllDataFromPage } = require('./controllers/carsDataCollector');
+const { extractData } = require('./controllers/extractCarsData');
+const {
+  readDataWithFilePath,
+  downloadImage,
+  saveDataWithFilePathAndData,
+} = require('./utils/saveOnFiles');
 
 // Config
 dotenv.config({ path: './config/config.env' });
 
-// Variables
-const { EMAIL, PASSWORD } = process.env;
+// Constants
+const {
+  EMAIL,
+  PASSWORD,
+  FB_URL,
+  FB_MARKETPLACE_URL,
+  FB_MARKETPLACE_CAR_URL,
+  FB_MARKETPLACE_CAR_SELECTOR,
+  FB_MARKETPLACE_CAR_FILTER,
+} = process.env;
 
-// Main Function
-const main = async () => {
+// Web Scraping
+const webScraping = async () => {
   // Open Browser
   const browser = await openBrowser();
-  // Go to Facebook page
-  const page = await goToPageFirst(browser, 'https://www.facebook.com');
-  // Go to email field and write email
-  await page.waitForSelector('input[name="email"]');
-  await write(page, EMAIL);
-  await waiting(1000, 3000);
-  // Go to password field and write password
-  await press(page, 'Tab');
-  // Go to password field and write password
-  await waiting(1000, 3000);
-  await write(page, PASSWORD);
-  await waiting(1000, 3000);
-  // Click on login button
-  await press(page, 'Tab');
-  await press(page, 'Tab');
-  await press(page, 'Enter');
-  await waiting(4000, 6000);
-  // Go To More Options
-  await pressButton(page, 'a[aria-label="More"]');
-  await waiting(1000, 3000);
-  // Go to Marketplace
-  await goToPage(page, 'https://www.facebook.com/marketplace/?ref=bookmark');
-  await waiting(4000, 6000);
-  // Go To Cars Page
-  await goToPage(
-    page,
-    'https://www.facebook.com/marketplace/category/vehicles'
-  );
-  await waiting(4000, 6000);
-  // Get All Cars
-  await getAllCarsData(page);
+  // Open New Page
+  const page = await openNewPage(browser);
+  // Go to Vehicules Marketplace Page
+  await goToUrl(page, FB_URL);
+  await customizedWaiting(1000, 4000);
+  await select(page, '#email');
+  await customizedWaiting(1000, 2000);
+  await type(page, EMAIL);
+  await shortWaiting();
+  await pressKeyboardKey(page, 'Tab');
+  await customizedWaiting(1000, 2000);
+  await type(page, PASSWORD);
+  await customizedWaiting(1000, 2000);
+  await pressKeyboardKey(page, 'Tab');
+  await shortWaiting();
+  await pressKeyboardKey(page, 'Tab');
+  await shortWaiting();
+  await pressKeyboardKey(page, 'Enter');
+  await customizedWaiting(3000, 5000);
+  //   await pressButton(page, 'a[aria-label="More"]');
+  //   await customizedWaiting(1000, 2000);
+  await goToUrl(page, FB_MARKETPLACE_URL);
+  await customizedWaiting(1000, 2000);
+  await goToUrl(page, FB_MARKETPLACE_CAR_URL);
+  await customizedWaiting(1000, 2000);
+  // Scroll down to load max cars 10min
+  await scroll(page, 1000 * 60 * 10);
+  // Get all data and stock them in a variable and on a file
+  const data = await getAllDataFromPage({
+    page: page,
+    slectorToCollect: FB_MARKETPLACE_CAR_SELECTOR,
+    filterWith: FB_MARKETPLACE_CAR_FILTER,
+  });
+  return { data, browser, page };
 };
 
-// Run Main Function
+// Main
+const main = async () => {
+  // Get Data
+  const { data, browser, page } = await webScraping();
+  // After This Line That's Custom Function for any kind of object
+  // We take cars so we have to extract title price description image km year location
+  // we dont have to await after this step
+  // There we go to the next step
+  // Extract data with JSON Format
+
+  // Try to extract data from the Variable data returned from the function getAllDataFromPage
+  try {
+    const json = extractData(data);
+    console.log(json.length);
+  } catch (error) {
+    // If there is an error we read data from the file made by the function getAllDataFromPage saved successfully
+    console.log(error);
+    const dataa = readDataWithFilePath(`${__dirname}/_data/allElements.txt`);
+    const data = dataa.toString().split('\n');
+    extractData(data);
+  }
+  // Close Page
+  // await closePage(page);
+  // // Close Browser
+  // await closeBrowser(browser);
+};
+
+// Run
 main();

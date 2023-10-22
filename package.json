@@ -1,5 +1,5 @@
 {
-  "name": "facebook-bot",
+  "name": "facebook-botv2",
   "version": "1.0.0",
   "description": "",
   "main": "app.js",
@@ -9,6 +9,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.5.1",
+    "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.3.1",
     "puppeteer": "^21.4.0"
   }
